@@ -1,8 +1,9 @@
+import 'package:animated_qr_code_scanner/AnimatedQRViewController.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 import 'package:http/http.dart';
-import 'package:toast/toast.dart';
 import 'colorPalette.dart';
+import 'package:animated_qr_code_scanner/animated_qr_code_scanner.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 final palette = new ColorPalette();
 
@@ -13,106 +14,118 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Los Troncos',
       debugShowCheckedModeBanner: false,
-      home: MyHomePage(title: 'Los Troncos Wood Tracker'),
+      home: HomePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-  final String title;
+class HomePage extends StatefulWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  final _formKey = GlobalKey<FormState>();
-  Future _scanCode() async {
-    FlutterBarcodeScanner.getBarcodeStreamReceiver("#ff6666", "Cancel", false, ScanMode.QR)
-         .listen((barcode) { 
-         print("Barcode $barcode");
-         requestBlockInfo(barcode);
-    });
-  }
-
+class _HomePageState extends State<HomePage> {
+  final controller = AnimatedQRViewController();
+  PanelController _pc = new PanelController();
+  String estado = "Inicial";
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: palette.getHeaderColor(),
+    var children = <Widget>[
+      AnimatedQRView(
+        squareColor: Colors.grey.withOpacity(0.25),
+        squareBorderColor: Colors.grey,
+        animationDuration: const Duration(seconds: 4),
+        onScan: (String str) async {
+          print(str);
+          controller.resume();
+          if (estado == "Inicial") {
+            setState(() {
+              estado = "validated";
+            });
+          } else {
+            setState(() {
+              estado = "error";
+            });
+          }
+        },
+        controller: controller,
       ),
-      body: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    ];
+    if (estado == "validated") {
+      children.add(Opacity(
+        opacity: 0.5,
+        child: const ModalBarrier(dismissible: false, color: Colors.green),
+      ));
+    } else if (estado == "error") {
+      children.add(Opacity(
+        opacity: 0.5,
+        child: const ModalBarrier(dismissible: false, color: Colors.red),
+      ));
+    }
+
+    var panel = SlidingUpPanel(
+      maxHeight: 575.0,
+      minHeight: 95.0,
+      parallaxEnabled: false,
+      controller: _pc,
+      body: Stack(children: children),
+      panel: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            height: 12.0,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
-                child: Text("Log ID (Usually found printed in the log):",
-                style: TextStyle(fontSize: 16,fontWeight:FontWeight.bold),),
+              Container(
+                width: 30,
+                height: 5,
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.all(Radius.circular(12.0))),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
-                child: TextFormField(
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'The id is Emty';
-                    }
-                    return null;
-                  },
+            ],
+          ),
+          SizedBox(
+            height: 18.0,
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text(
+                "Explore Pittsburgh",
+                style: TextStyle(
+                  fontWeight: FontWeight.normal,
+                  fontSize: 24.0,
                 ),
               ),
-              Padding(
-                  padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
-                  child: ButtonTheme(
-                      minWidth: double.infinity,
-                      child: RaisedButton(
-                        onPressed: () {
-                          if (_formKey.currentState.validate()) {}
-                        },
-                        child: Text("Submit"),
-                        color: palette.getPrimaryColor(),
-                        textColor: Colors.white,
-                      )))
             ],
-          )),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _scanCode,
-        tooltip: 'Scan Qr',
-        icon: Icon(Icons.camera_alt),
-        label: Text('Scan QR'),
-        backgroundColor: palette.getPrimaryColor(),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+          ),
+        ],
+      ),
+      borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(18.0), topRight: Radius.circular(18.0)),
     );
-  }
-
-  Future requestBlockInfo(String _url) async {
-    if (!_url.contains("http://13.59.89.246:3000/")) {
-      Toast.show("This log has an invalid URL.", context,
-          gravity: Toast.BOTTOM,
-          backgroundColor: palette.getErrorColor(),
-          textColor: Colors.black,
-          duration: Toast.LENGTH_LONG);
-    } else {
-      var response = await get(_url);
-      if (response.statusCode != 200) {
-        Toast.show(
-            "This log has is not in the database.\nSomething's wrong", context,
-            gravity: Toast.BOTTOM,
-            backgroundColor: palette.getErrorColor(),
-            textColor: Colors.black,
-            duration: Toast.LENGTH_LONG);
-      }else{
-        Toast.show(
-            "This log has is not in the database.\nSomething's wrong", context,
-            gravity: Toast.BOTTOM,
-            backgroundColor: palette.getErrorColor(),
-            textColor: Colors.black,
-            duration: Toast.LENGTH_LONG);
+    try {
+      if (estado == "Inicial") {
+        _pc.hide();
+      } else {
+        _pc.show();
       }
-    }
+    } catch (error) {}
+    return Scaffold(
+        drawer: Drawer(
+            child: ListView(padding: EdgeInsets.zero, children: [
+          ListTile(
+            title: Text('Ingresar Código'),
+            onTap: () {
+              //Agregar view para leer input
+            },
+          )
+        ])),
+        body: panel);
   }
 }

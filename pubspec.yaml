@@ -26,6 +26,7 @@ dependencies:
       url: https://github.com/kiatuki/animated_qr_code_scanner.git
       ref: v0.1.2
   sliding_up_panel: ^0.3.6
+  convert: 
 
 dev_dependencies:
   flutter_test:

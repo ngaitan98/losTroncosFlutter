@@ -1,10 +1,11 @@
 import 'package:animated_qr_code_scanner/AnimatedQRViewController.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
+import 'tronco/tronco.dart';
 import 'colorPalette.dart';
 import 'package:animated_qr_code_scanner/animated_qr_code_scanner.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
-
+import 'dart:convert';
 final palette = new ColorPalette();
 
 void main() => runApp(MyApp());
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> {
   final controller = AnimatedQRViewController();
   PanelController _pc = new PanelController();
   String estado = "Inicial";
+  Tronco troncoActual = new Tronco("ncdodoe", 74.33498, 4.32222, "Roble", "Tablón");
   @override
   Widget build(BuildContext context) {
     var children = <Widget>[
@@ -38,17 +40,22 @@ class _HomePageState extends State<HomePage> {
         squareBorderColor: Colors.grey,
         animationDuration: const Duration(seconds: 4),
         onScan: (String str) async {
-          print(str);
           controller.resume();
-          if (estado == "Inicial") {
-            setState(() {
-              estado = "validated";
-            });
-          } else {
-            setState(() {
-              estado = "error";
-            });
+          if(!str.contains("ENDPOINT")){
+            estado = "error";
           }
+          else{
+            Response res = await get(str);
+            if(res.statusCode != 200 && res.statusCode != 500){
+              estado = "error";
+            }
+            else{
+              estado = "validated";
+              Map<String, String> parsedResponse = TextEditingValue.fromJSON(json.decode(res.body)).toJSON();
+              troncoActual = new Tronco(parsedResponse["id"],double.parse(parsedResponse["lat"]), double.parse(parsedResponse["lon"]), parsedResponse["especie"], parsedResponse["estado"]);
+            }
+          }
+          
         },
         controller: controller,
       ),
@@ -64,8 +71,7 @@ class _HomePageState extends State<HomePage> {
         child: const ModalBarrier(dismissible: false, color: Colors.red),
       ));
     }
-
-    var panel = SlidingUpPanel(
+    var panel = troncoActual != null? SlidingUpPanel(
       maxHeight: 575.0,
       minHeight: 95.0,
       parallaxEnabled: false,
@@ -96,19 +102,20 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               Text(
-                "Explore Pittsburgh",
+                troncoActual.id,
                 style: TextStyle(
                   fontWeight: FontWeight.normal,
                   fontSize: 24.0,
                 ),
               ),
             ],
-          ),
+          ),              
+          Text("[lat,lon]")
         ],
       ),
       borderRadius: BorderRadius.only(
           topLeft: Radius.circular(18.0), topRight: Radius.circular(18.0)),
-    );
+    ):null;
     try {
       if (estado == "Inicial") {
         _pc.hide();
